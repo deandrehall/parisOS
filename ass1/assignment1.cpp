@@ -43,10 +43,8 @@ class Process{
         
     public:
         vector<instruction> instrList;
-
+        
         Process(){
-            static int pIDincrementer = 0;
-            this->processID = pIDincrementer;
         }
 
         Process(int val){
@@ -54,12 +52,15 @@ class Process{
 
             this->processID = pIDincrementer;
             this->startTime = val;
+            pIDincrementer++;
         }
         
         ~Process(){
         }
 
         int retSize();
+        int retPID();
+        int retStartTime(); 
 };
 
 core freeCore(core);
@@ -78,6 +79,7 @@ int main(){
     int val = 0;
 
     while(inputFile>>command>>val){
+        cout<<command<<"\t"<<val<<endl;
         if(command == "NCORES"){
             for(int i=0; i<val; i++){
                 core newCore;
@@ -101,12 +103,20 @@ int main(){
             processList.back().instrList.push_back(newInstruction);
         }
     }
-
+    
     return 0;
 }
 
 int Process::retSize(){
     return this->instrList.size();
+}
+
+int Process::retPID(){
+    return this->processID;
+}
+
+int Process::retStartTime(){
+    return this->startTime;
 }
 
 core freeCore(core tempCore){
