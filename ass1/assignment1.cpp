@@ -17,16 +17,44 @@ int SLICE = 0;
 
 struct disk{
     string status;
+    int busyUntil = 0;
 }Disk;
 
 //CPU is a vector of cores?
 struct core{
-    int coreID;
+    int coreID = -1;
     bool active = false;
     int currentProcessID = -1;
+    int busyUntil = 0;
 };
 
-vector<core> CPU;
+class CPU{
+    protected:
+        vector<core> cores;
+        int numCores = 0;
+    public:
+        CPU(){
+        }
+
+        CPU(int numCores){
+            this->numCores = numCores;
+            for(int i=0; i<numCores; i++){
+                core newCore;
+                newCore.coreID = i;
+                newCore.active = false;
+                this->cores.push_back(newCore);
+            }
+
+        }
+
+        ~CPU(){
+        }
+
+        void freeCore();
+        void setBusyUntil(int, int);
+        core requestCore();
+        int retFreeCoreID();
+};
 
 struct instruction{
     string name;
@@ -63,17 +91,18 @@ class Process{
         int retStartTime(); 
 };
 
-core freeCore(core);
-int retFreeCore();
+vector<Process> processList;
+vector<Process> readyQueue;
+vector<Process> diskQueue;
 
 int main(){
 
     fstream inputFile;
     inputFile.open("input.txt");
      
-    vector<Process> processList;
     instruction newInstruction;
     Process newProcess;
+    CPU cpu;
 
     string command = "";
     int val = 0;
@@ -81,12 +110,7 @@ int main(){
     while(inputFile>>command>>val){
         cout<<command<<"\t"<<val<<endl;
         if(command == "NCORES"){
-            for(int i=0; i<val; i++){
-                core newCore;
-                newCore.coreID = val;
-                newCore.active = false;
-                CPU.push_back(newCore);
-            }
+           cpu = CPU(val); 
         }
         else if(command == "SLICE"){
             SLICE = val;
@@ -101,6 +125,34 @@ int main(){
             newInstruction.remaining = val;
             
             processList.back().instrList.push_back(newInstruction);
+        }
+    }
+
+    while(processList.size() >= 0){
+        instruction processFront = processList.front().instrList.front(); 
+        if(processFront.name == "CORE"){
+           //if process requests core time and a core is free mark that
+           //core as busy 
+            if(cpu.requestCore().coreID >= 0){
+                if(processFront.duration <= SLICE){
+                    cpu.setBusyUntil(CLOCK+processFront.duration,
+                            processList.front().retPID());
+                    processList.front().instrList.front().duration=0;
+                }
+                else{
+                    cpu.setBusyUntil(CLOCK+SLICE,
+                            processList.front().retPID());
+                    processList.front().instrList.front().duration -= SLICE;
+                }
+            }
+            //if no core is free, add the process to the readyQueue and
+            //remove that process from the top of the processList
+            else{
+                readyQueue.push_back(processList.front());
+                processList.erase(processList.begin());
+            }
+
+
         }
     }
     
@@ -119,16 +171,30 @@ int Process::retStartTime(){
     return this->startTime;
 }
 
-core freeCore(core tempCore){
-    tempCore.active = false;
-    tempCore.currentProcessID = -1;
-    return tempCore;
+int CPU::retFreeCoreID(){
+    return this->requestCore().coreID;
 }
 
-int retFreeCore(){
-    
-    for(int i = 0; i<CPU.size(); i++){
-        if(CPU[i].active = false) return i;
+void CPU::freeCore(){
+    this->numCores--;
+    int coreID = this->requestCore().coreID;
+    this->cores[coreID].currentProcessID = -1;
+    this->cores[coreID].busyUntil = 0;
+    this->cores[coreID].active = false;
+}
+
+void CPU::setBusyUntil(int reqTime, int pID){
+    this->numCores++;
+    int coreID = this->requestCore().coreID;
+    this->cores[coreID].currentProcessID = pID; 
+    this->cores[coreID].busyUntil = reqTime;
+    this->cores[coreID].active = true;
+}
+
+core CPU::requestCore(){
+    core DUMMY;
+    for(int i = 0; i < this->cores.size(); i++){
+        if(this->cores[i].active == false) return this->cores[i];
     } 
-    return -1;
+    return DUMMY;
 }
