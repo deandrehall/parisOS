@@ -261,8 +261,7 @@ int main(){
             }
         }
 
-        if((diskQueue.size()>0) && (diskQueue.front().name == "DISK")){
-            cout<<"test1"<<endl;
+        if((diskQueue.size()>0) && (diskQueue.front().name == "DISK")){ 
             //if the disk is free, add the instruction to the disk
             if(Disk.status == "IDLE"){
                 setDiskBusy(diskQueue.front()); 
@@ -280,7 +279,7 @@ int main(){
             }
         }
 
-        if((CLOCK >= Disk.busyUntil) && (Disk.status == "BUSY")){
+        if((CLOCK >= Disk.busyUntil) && (Disk.status == "RUNNING")){
             cout<<"DISK IS NOW FREE"<<endl;
             freeDisk();
         }
