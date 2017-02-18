@@ -295,7 +295,7 @@ void preParse(){
 
 
 void setDiskBusy(instruction tempInstruction){
-    Disk.status == "RUNNING";
+    Disk.status = "RUNNING";
     Disk.currentProcessID = tempInstruction.processID;
     Disk.busyUntil = CLOCK + tempInstruction.duration;
 }
