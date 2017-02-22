@@ -29,14 +29,24 @@ struct core{
     int busyUntil = 0;
 };
 
+struct display{
+    string status = "IDLE";
+    int  currentProcessID = -1;
+    int busyUntil = 0;
+}Display;
+
+struct input{
+    string status = "IDLE";
+    int currentProcessID = -1;
+    int busyUntil = 0;
+}Input;
+
 struct instruction{
     string name = "?";
-    //int arrival;
     int duration = 0;
     int remaining = 0;
     int currentLocation = -1;
     int processID = -1;
-    //std::string status;
 };
 
 class Process{
@@ -98,9 +108,12 @@ class CPU{
 };
 
 void setDiskBusy(instruction);
+void setDisplayBusy(instruction);
+void setInputBusy(instruction);
 void freeDisk();
-void preParse();
-
+void freeDisplay();
+void freeInput();
+void checkEmpty(vector<Process> &tempList);
 vector<Process> processList;
 vector<Process> readyQueue;
 vector<instruction> diskQueue;
@@ -129,6 +142,8 @@ int main(){
             SLICE = val;
         }
         else if(command == "NEW"){
+            if(CLOCK < val) CLOCK = val;
+
             newProcess = Process(val);
             processList.push_back(newProcess);
         }
@@ -151,7 +166,6 @@ int main(){
                     cpu.setBusyUntil(CLOCK+processList.front().instrList.front().duration,
                             processList);
                     processList.front().instrList.front().duration=0;
-                    cout<<processList.front().instrList.front().name<<processList.front().retPID()<<" has been completed in a single cycle"<<endl;
                     cpu.freeCore(processList.front().instrList.front().currentLocation); 
                 }
                 //if duration>SLICE
@@ -177,11 +191,17 @@ int main(){
             //if process duration is 0, print report
             if(processList.front().instrList.front().duration == 0){
                 //print report
-                cout<<"instruction "<<processList.front().instrList.front().name<<" has been completed. removing it from processList"<<endl; 
+                cout<<"instruction "<<processList.front().instrList.front().name<<processList.front().instrList.front().processID<<"has been completed CLOCK = "<<CLOCK<<endl; 
                 //pop instruction from processList
                 processList.front().instrList.erase(processList.front().instrList.begin()); 
             }
         }
+
+        if((CLOCK >= Disk.busyUntil) && (Disk.status == "RUNNING")){
+            cout<<"DISK IS NOW FREE CLOCK = "<<CLOCK<<endl;
+            freeDisk();
+        }
+
         if(readyQueue.front().instrList.front().name == "CORE"){
             //if process requests core time and a core is free mark that
            //core as busy 
@@ -190,8 +210,7 @@ int main(){
                 if(readyQueue.front().instrList.front().duration <=SLICE){
                     cpu.setBusyUntil(CLOCK+readyQueue.front().instrList.front().duration,
                             processList);
-                    processList.front().instrList.front().duration = 0;
-                    cout<<readyQueue.front().instrList.front().name<<" has been completed"<<endl;
+                    readyQueue.front().instrList.front().duration = 0;
                     cpu.freeCore(processList.front().instrList.front().currentLocation);
                 }
                 //if duration>SLICE
@@ -200,7 +219,7 @@ int main(){
                             readyQueue);
                     readyQueue.front().instrList.front().duration -= SLICE;
 
-                    cout<<"sending instruction "<<readyQueue.front().instrList.front().name<<" to readyQueue from readyQueue with "<< readyQueue.front().instrList.front().duration<<" remaining"<<endl;
+                    cout<<"sending instruction "<<readyQueue.front().instrList.front().name<<readyQueue.front().instrList.front().processID<<" to readyQueue from readyQueue with "<< readyQueue.front().instrList.front().duration<<" remaining"<<endl;
 
                     cpu.freeCore(readyQueue.front().instrList.front().currentLocation);
                     readyQueue.push_back(readyQueue.front());
@@ -210,25 +229,31 @@ int main(){
             //if no core is free, add the process to the readyQueue and
             //remove that process from the top of the readyQueue
             else{
-                cout<<"no free core, sending "<<readyQueue.front().instrList.front().name<<" to ready queue with "<<readyQueue.front().instrList.front().duration<<" remaining"<<endl;
+                cout<<"no free core, sending "<<readyQueue.front().instrList.front().name<<readyQueue.front().instrList.front().processID<<" to ready queue with "<<readyQueue.front().instrList.front().duration<<" remaining"<<endl;
                 readyQueue.push_back(readyQueue.front());
                 readyQueue.erase(readyQueue.begin());
             }
             //if process duration is 0, print report
             if(readyQueue.front().instrList.front().duration == 0){
                 //print report
-                cout<<"instruction "<<readyQueue.front().instrList.front().name<<" has been completed. removing it from processList"<<endl; 
+                cout<<"instruction "<<readyQueue.front().instrList.front().name<<readyQueue.front().instrList.front().processID<<"has been completed CLOCK = "<<CLOCK<<endl; 
                 //pop instruction from readyQueue
                 readyQueue.front().instrList.erase(readyQueue.front().instrList.begin()); 
             }
         }
+
+        if((CLOCK >= Disk.busyUntil) && (Disk.status == "RUNNING")){
+            cout<<"DISK IS NOW FREE CLOCK = "<<CLOCK<<endl;
+            freeDisk();
+        }
+
+
         
         if(processList.front().instrList.front().name == "DISK"){
             //if the disk is free, add the instruction to the disk
             if(Disk.status == "IDLE"){
-                setDiskBusy(processList.front().instrList.front());
-                cout<<"setting disk busy until: "<<(CLOCK +
-                       processList.front().instrList.front().duration)<<endl;
+                setDiskBusy(processList.front().instrList.front()); 
+                cout<<"setting disk busy until1:"<<(Disk.busyUntil)<<endl;
                 processList.front().instrList.front().duration = 0;
                 //readyQueue.push_back(processList.front().instrList.front();
                 processList.front().instrList.erase(processList.front().instrList.begin());
@@ -238,16 +263,15 @@ int main(){
             else{
                 diskQueue.push_back(processList.front().instrList.front());
                 processList.front().instrList.erase(processList.front().instrList.begin());
-                cout<<"the disk is currently busy, adding instruction to the disk queue from the processList"<<endl;
+                cout<<"the disk1 is currently busy, adding instructionto the disk queue from the processListi CLOCK = "<<CLOCK<<endl;
             }
         }
         
-        if(readyQueue.front().instrList.front().name == "DISK"){
+        else if(readyQueue.front().instrList.front().name == "DISK"){
             //if the disk is free, add the instruction to the disk
             if(Disk.status == "IDLE"){
                setDiskBusy(readyQueue.front().instrList.front()); 
-               cout<<"setting disk busy until: "<<(CLOCK +
-                       readyQueue.front().instrList.front().duration)<<endl;
+               cout<<"setting disk busy until2:"<<(Disk.busyUntil)<<endl;
                readyQueue.front().instrList.front().duration = 0;
                //readyQueue pushback into readyQueue goes here?
                readyQueue.front().instrList.erase(readyQueue.front().instrList.begin());
@@ -257,16 +281,15 @@ int main(){
             else{
                 diskQueue.push_back(readyQueue.front().instrList.front());
                 readyQueue.front().instrList.erase(readyQueue.front().instrList.begin());
-                cout<<"the disk is currently busy, adding instruction to the disk queue from the readyQueue"<<endl;
+                cout<<"the disk2 is currently busy, adding instruction to the disk queue from the readyQueue CLOCK = "<<CLOCK<<endl;
             }
         }
 
-        if((diskQueue.size()>0) && (diskQueue.front().name == "DISK")){ 
+        else if((diskQueue.size()>0) && (diskQueue.front().name == "DISK")){ 
             //if the disk is free, add the instruction to the disk
             if(Disk.status == "IDLE"){
                 setDiskBusy(diskQueue.front()); 
-                cout<<"setting disk busy until: "<<(CLOCK +
-                       readyQueue.front().instrList.front().duration)<<endl;
+                cout<<"setting disk busy until3:"<<(Disk.busyUntil)<<endl;
                 diskQueue.front().duration = 0;
                 diskQueue.erase(diskQueue.begin());
             }
@@ -275,24 +298,40 @@ int main(){
             else{
                 diskQueue.push_back(diskQueue.front());
                 diskQueue.erase(diskQueue.begin());
-                cout<<"the disk is currently busy, adding instruction to the disk queue from the diskQueue"<<endl;
+                cout<<"the disk3 is currently busy, adding instruction to the disk queue from the diskQueue CLOCK = "<<CLOCK<<endl;
             }
         }
 
-        if((CLOCK >= Disk.busyUntil) && (Disk.status == "RUNNING")){
-            cout<<"DISK IS NOW FREE"<<endl;
-            freeDisk();
-        }
+        
+
+        checkEmpty(processList);
+        checkEmpty(readyQueue);
 
     }
     cout<<"complete!!!"; 
     return 0;
 }
 
-void preParse(){
-    
+void checkEmpty(vector<Process> &tempList){
+    for(int i = 0; i < tempList.size(); i++){
+        if(tempList[i].instrList.size() == 0){
+            tempList.erase(tempList.begin()+i);
+            cout<<"removing process "<<i<<endl;
+        }
+    }
 }
 
+void setDisplayBusy(instruction tempInstruction){
+    Display.status = "RUNNING";
+    Display.currentProcessID = tempInstruction.processID;
+    Display.busyUntil = CLOCK + tempInstruction.duration;
+}
+
+void setInputBusy(instruction tempInstruction){
+    Input.status = "RUNNING";
+    Input.currentProcessID = tempInstruction.processID;
+    Input.busyUntil = CLOCK + tempInstruction.duration;
+}
 
 void setDiskBusy(instruction tempInstruction){
     Disk.status = "RUNNING";
@@ -304,6 +343,18 @@ void freeDisk(){
     Disk.status = "IDLE";
     Disk.currentProcessID = -1;
     Disk.busyUntil = 0;
+}
+
+void freeDisplay(){
+    Display.status = "IDLE";
+    Display.currentProcessID = -1;
+    Display.busyUntil = 0;
+}
+
+void freeInput(){
+    Input.status = "IDLE";
+    Input.currentProcessID = -1;
+    Input.busyUntil = 0;
 }
 
 int Process::retSize(){
