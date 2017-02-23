@@ -120,6 +120,7 @@ void freeDisplay();
 void freeInput();
 void checkEmpty(vector<Process> &tempList);
 void queueLoader();
+void loadCPU();
 
 vector<Process> processList;
 vector<Process> readyQueue;
@@ -243,25 +244,7 @@ int main(){
             //if process requests core time and a core is free mark that
            //core as busy 
             if(cpu.requestCore().coreID >= 0){ 
-                //if duration<=SLICE
-                if(readyQueue.front().instrList.front().duration <=SLICE){
-                    cpu.setBusyUntil(readyQueue.front().instrList.front().duration,
-                            processList);
-                    readyQueue.front().instrList.front().duration = 0;
-                    cpu.freeCore(processList.front().instrList.front().currentLocation);
-                }
-                //if duration>SLICE
-                else{
-                    cpu.setBusyUntil(SLICE,
-                            readyQueue);
-                    readyQueue.front().instrList.front().duration -= SLICE;
-
-                    cout<<"sending instruction "<<readyQueue.front().instrList.front().name<<readyQueue.front().instrList.front().processID<<"to readyQueue from readyQueue with "<<readyQueue.front().instrList.front().duration<<"remaining CLOCK="<<CLOCK<<endl;
-
-                    cpu.freeCore(readyQueue.front().instrList.front().currentLocation);
-                    readyQueue.push_back(readyQueue.front());
-                    readyQueue.erase(readyQueue.begin()); 
-                }
+               loadCPU(); 
             }
             //if no core is free, add the process to the readyQueue and
             //remove that process from the top of the readyQueue
@@ -402,6 +385,37 @@ int main(){
     }
     cout<<"complete!!!"; 
     return 0;
+}
+
+//function loads core processes into cores, as long as a core is empty
+//and the timeing is correct;
+void loadCPU(){
+    for(int i = 0; i < readyQueue.size(); i++){
+        //if a core is free
+        if(cpu.requestCore().coreID >= 0){
+            //if the duration is <= SLICE
+            if(readyQueue.front().instrList.front().duration <= SLICE){
+                cpu.setBusyUntil(readyQueue.front().instrList.front().duration,
+                        readyQueue);
+                readyQueue.front().instrList.front().duration = 0;
+
+                cout<<"instruction "<<readyQueue.front().instrList.front().name<<readyQueue.front().instrList.front().processID<<" has been completed CLOCK = "<<CLOCK<<endl; 
+                //pop instruction from readyQueue
+                readyQueue.front().instrList.erase(readyQueue.front().instrList.begin()); 
+            }
+            //if the duration > SLICE
+            else{
+                cpu.setBusyUntil(SLICE,readyQueue);
+                readyQueue.front().instrList.front().duration -= SLICE;
+                readyQueue.push_back(readyQueue.front());
+                readyQueue.erase(readyQueue.begin());
+            }
+            
+            if(readyQueue.front().instrList.front().name != "CORE"){
+                break;
+            }
+        }
+    }
 }
 
 void queueLoader(){
