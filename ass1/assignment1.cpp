@@ -110,6 +110,7 @@ class CPU{
         core requestCore();
         int retFreeCoreID();
         int retNumBusyCores();
+        void checkFreeCore();
 };
 
 void setDiskBusy(instruction);
@@ -208,6 +209,7 @@ int main(){
             }
         }
 */
+		
         checkEmpty(processList);
         checkEmpty(readyQueue);
         //unblocks a process if the busyUntil time has been reached
@@ -252,13 +254,6 @@ int main(){
                 cout<<"no free core, sending "<<readyQueue.front().instrList.front().name<<readyQueue.front().instrList.front().processID<<" to ready queue with "<<readyQueue.front().instrList.front().duration<<" remaining"<<endl;
                 readyQueue.push_back(readyQueue.front());
                 readyQueue.erase(readyQueue.begin());
-            }
-            //if process duration is 0, print report
-            if(readyQueue.front().instrList.front().duration == 0){
-                //print report
-                cout<<"instruction "<<readyQueue.front().instrList.front().name<<readyQueue.front().instrList.front().processID<<" has been completed CLOCK = "<<CLOCK<<endl; 
-                //pop instruction from readyQueue
-                readyQueue.front().instrList.erase(readyQueue.front().instrList.begin()); 
             }
         }
 
@@ -508,14 +503,23 @@ int CPU::retFreeCoreID(){
     return this->requestCore().coreID;
 }
 
+void CPU::checkFreeCore(){
+	for(int i = 0; i<this.cores.size(); i++){
+		if((CLOCK >= this.cores[i].busyUntil) && (this.cores[i].active == true)){
+			freeCore(i);	
+		}
+	}
+}
+
 void CPU::freeCore(int coreID){
     this->numBusyCores--;
     this->cores[coreID].currentProcessID = -1;
-    this->cores[coreID].busyUntil = CLOCK;
+    this->cores[coreID].busyUntil = 0;
     this->cores[coreID].active = false;
 }
 
 void CPU::setBusyUntil(int reqTime, vector<Process> &tempProcess){
+	cpu.checkFreeCore();
     int pID = tempProcess.front().retPID(); 
     this->numBusyCores++;
     int coreID = this->requestCore().coreID;
@@ -524,6 +528,7 @@ void CPU::setBusyUntil(int reqTime, vector<Process> &tempProcess){
     this->cores[coreID].active = true;
     tempProcess.front().instrList.front().currentLocation = coreID;
     CLOCK += reqTime;
+    cpu.checkFreeCore();
     //cout<<"adding "<<reqTime<<" , current clock is now "<<CLOCK<<endl; 
 }
 
