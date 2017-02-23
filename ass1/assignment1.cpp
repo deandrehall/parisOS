@@ -122,6 +122,7 @@ void freeInput();
 void checkEmpty(vector<Process> &tempList);
 void queueLoader();
 void loadCPU();
+void advanceClock(int);
 
 vector<Process> processList;
 vector<Process> readyQueue;
@@ -211,6 +212,7 @@ int main(){
 */
 		
         queueLoader();
+        
         //unblocks a process if the busyUntil time has been reached
         if((CLOCK >= Display.busyUntil) && (Display.status == "RUNNING")){
 /*
@@ -390,10 +392,14 @@ int main(){
 //function loads core processes into cores, as long as a core is empty
 //and the timeing is correct;
 void loadCPU(){
+	int minTime = 2e99;
     for(int i = 0; i < readyQueue.front().instrList.size(); i++){
         //if a core is free
         if(cpu.requestCore().coreID >= 0){
             //if the duration is <= SLICE
+            if(readyQueue.front().instrList.front().duration < minTime){
+            	minTime = readyQueue.front().instrList.front().duration;	
+            }
             if(readyQueue.front().instrList.front().duration <= SLICE){
                 cpu.setBusyUntil(readyQueue.front().instrList.front().duration,
                         readyQueue);
@@ -413,6 +419,7 @@ void loadCPU(){
             }
             //exits if next instruction in the list isnt CORE request
             if(readyQueue.front().instrList.front().name != "CORE"){
+            	advanceClock(minTime);
                 break;
             }
         }
@@ -533,7 +540,7 @@ void CPU::setBusyUntil(int reqTime, vector<Process> &tempProcess){
     this->cores[coreID].busyUntil = CLOCK + reqTime;
     this->cores[coreID].active = true;
     tempProcess.front().instrList.front().currentLocation = coreID;
-    CLOCK += reqTime;
+    //CLOCK += reqTime;
     queueLoader();
     cpu.checkFreeCore();
     //cout<<"adding "<<reqTime<<" , current clock is now "<<CLOCK<<endl; 
