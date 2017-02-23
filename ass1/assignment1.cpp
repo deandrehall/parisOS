@@ -396,6 +396,7 @@ void loadCPU(){
     for(int i = 0; i < readyQueue.front().instrList.size(); i++){
         //if a core is free
         if(cpu.requestCore().coreID >= 0){
+        	cpu.checkFreeCore();
             //if the duration is <= SLICE
             if(readyQueue.front().instrList.front().duration < minTime){
             	minTime = readyQueue.front().instrList.front().duration;	
@@ -424,6 +425,13 @@ void loadCPU(){
             }
         }
     }
+}
+
+void advanceClock(int time){
+	cpu.checkFreeCore();
+	CLOCK += time;
+	queueLoader();
+    cpu.checkFreeCore();
 }
 
 void queueLoader(){
@@ -541,8 +549,6 @@ void CPU::setBusyUntil(int reqTime, vector<Process> &tempProcess){
     this->cores[coreID].active = true;
     tempProcess.front().instrList.front().currentLocation = coreID;
     //CLOCK += reqTime;
-    queueLoader();
-    cpu.checkFreeCore();
     //cout<<"adding "<<reqTime<<" , current clock is now "<<CLOCK<<endl; 
 }
 
