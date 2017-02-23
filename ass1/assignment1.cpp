@@ -332,7 +332,7 @@ int main(){
             }
         }
 
-        else if((diskQueue.size()>0) && (diskQueue.front().name == "DISK")){ 
+        if((diskQueue.size()>0) && (diskQueue.front().name == "DISK")){ 
             //if the disk is free, add the instruction to the disk
             if(Disk.status == "IDLE"){
                 setDiskBusy(diskQueue.front()); 
@@ -343,8 +343,8 @@ int main(){
             //if the disk is currently busy, add the instruction to the
             //diskQueue
             else{
-                diskQueue.push_back(diskQueue.front());
-                diskQueue.erase(diskQueue.begin());
+                //diskQueue.push_back(diskQueue.front());
+                //diskQueue.erase(diskQueue.begin());
                 cout<<"the disk3 is currently busy, adding instruction to the disk queue from the diskQueue CLOCK = "<<CLOCK<<endl;
             }
         }
