@@ -210,10 +210,8 @@ int main(){
         }
 */
 		
-        checkEmpty(processList);
-        checkEmpty(readyQueue);
+        queueLoader();
         //unblocks a process if the busyUntil time has been reached
-        
         if((CLOCK >= Display.busyUntil) && (Display.status == "RUNNING")){
 /*
             if(processList.front().instrList.front().name == ("DISPLAY")||("INPUT")){
@@ -228,6 +226,9 @@ int main(){
                 readyQueue.front().instrList.erase(readyQueue.front().instrList.begin());
             }
         }
+        
+        checkEmpty(processList);
+        checkEmpty(readyQueue);
 
         if((CLOCK >= Disk.busyUntil) && (Disk.status == "RUNNING")){
             cout<<"DISK IS NOW FREE CLOCK = "<<CLOCK<<endl;
@@ -241,6 +242,9 @@ int main(){
                 diskQueue.erase(diskQueue.begin());
             }
         }
+        
+        checkEmpty(processList);
+        checkEmpty(readyQueue);
 
         if(readyQueue.front().instrList.front().name == "CORE"){
             //if process requests core time and a core is free mark that
@@ -314,12 +318,14 @@ int main(){
                readyQueue.front().instrList.front().duration = 0;
                //readyQueue pushback into readyQueue goes here?
                readyQueue.front().instrList.erase(readyQueue.front().instrList.begin());
+               checkEmpty(readyQueue);
             }
             //if the disk is currently busy, add the instruction to the
             //diskQueue
             else{
                 diskQueue.push_back(readyQueue.front().instrList.front());
                 readyQueue.front().instrList.erase(readyQueue.front().instrList.begin());
+                checkEmpty(readyQueue);
                 cout<<"the disk2 is currently busy, adding instruction to the disk queue from the readyQueue CLOCK = "<<CLOCK<<endl;
             }
         }
@@ -352,8 +358,7 @@ int main(){
         }
         */
         // blocks readyQueue if the top instruction is DISPLAY or INPUT
-        if (readyQueue.front().instrList.front().name == "DISPLAY" || 
-                readyQueue.front().instrList.front().name == "INPUT"){
+        if ((readyQueue.front().instrList.front().name == ("DISPLAY") || ("INPUT"))){
             if(Display.status == "IDLE"){
                 setDisplayBusy(readyQueue.front().instrList.front());
                 cout<<"setting display busy until "<<Display.busyUntil<<" CLOCK = "<<CLOCK<<endl;
@@ -385,7 +390,7 @@ int main(){
 //function loads core processes into cores, as long as a core is empty
 //and the timeing is correct;
 void loadCPU(){
-    for(int i = 0; i < readyQueue.size(); i++){
+    for(int i = 0; i < readyQueue.front().instrList.size(); i++){
         //if a core is free
         if(cpu.requestCore().coreID >= 0){
             //if the duration is <= SLICE
@@ -396,7 +401,8 @@ void loadCPU(){
 
                 cout<<"instruction "<<readyQueue.front().instrList.front().name<<readyQueue.front().instrList.front().processID<<" has been completed CLOCK = "<<CLOCK<<endl; 
                 //pop instruction from readyQueue
-                readyQueue.front().instrList.erase(readyQueue.front().instrList.begin()); 
+                readyQueue.front().instrList.erase(readyQueue.front().instrList.begin());
+                checkEmpty(readyQueue);
             }
             //if the duration > SLICE
             else{
@@ -405,7 +411,7 @@ void loadCPU(){
                 readyQueue.push_back(readyQueue.front());
                 readyQueue.erase(readyQueue.begin());
             }
-            
+            //exits if next instruction in the list isnt CORE request
             if(readyQueue.front().instrList.front().name != "CORE"){
                 break;
             }
@@ -417,7 +423,7 @@ void queueLoader(){
     for(int i = 0; i < processList.size(); i++){
         if(CLOCK >= processList.front().retStartTime()){
             readyQueue.push_back(processList.front());
-            processList.front().instrList.erase(processList.front().instrList.begin());
+            processList.erase(processList.begin());
         }
     }
 }
@@ -528,6 +534,7 @@ void CPU::setBusyUntil(int reqTime, vector<Process> &tempProcess){
     this->cores[coreID].active = true;
     tempProcess.front().instrList.front().currentLocation = coreID;
     CLOCK += reqTime;
+    queueLoader();
     cpu.checkFreeCore();
     //cout<<"adding "<<reqTime<<" , current clock is now "<<CLOCK<<endl; 
 }
