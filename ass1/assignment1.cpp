@@ -127,8 +127,6 @@ void advanceClock(int);
 vector<Process> processList;
 vector<Process> readyQueue;
 vector<instruction> diskQueue;
-vector<instruction> ioQueue;
-//vector<instruction> inputQueue;
 CPU cpu;
 
 int main(){
@@ -173,11 +171,11 @@ int main(){
         queueLoader();
         
         //unblocks a process if the busyUntil time has been reached
-        if((CLOCK >= Display.busyUntil) && (Display.status == "RUNNING")){
+        if((CLOCK < Display.busyUntil) && (Display.status == "RUNNING")){
 
-            if(readyQueue.front().instrList.front().name == ("DISPLAY")||("INPUT")){
+             if ((readyQueue.front().instrList.front().name == "DISPLAY") ||
+                (readyQueue.front().instrList.front().name == "INPUT")){
                 if(readyQueue.size() == 1){
-                    cout<<"!!!!!!!!!!!!!"<<endl;
                     CLOCK = Display.busyUntil;
                 }
                 cout<<"DISPLAY removed from readyQueue1"<<endl;
@@ -224,15 +222,19 @@ int main(){
         checkEmpty(readyQueue);
         //unblocks a process if the busyUntil time has been reached
         
-        if((CLOCK >= Display.busyUntil) && (Display.status =="RUNNING")){
-            
-            if(readyQueue.front().instrList.front().name == ("DISPLAY")||("INPUT")){
-                if(readyQueue.size() == 1) CLOCK = Display.busyUntil;
-                //cout<<"DISPLAY CLOG BEING REMOVED from readyQueue2"<<endl;
+        if((CLOCK < Display.busyUntil) && (Display.status == "RUNNING")){
+
+             if ((readyQueue.front().instrList.front().name == "DISPLAY") ||
+                (readyQueue.front().instrList.front().name == "INPUT")){
+                if(readyQueue.size() == 1){ 
+                    CLOCK = Display.busyUntil;
+                }
+                cout<<"DISPLAY removed from readyQueue2"<<endl;
                 freeDisplay();
                 readyQueue.front().instrList.erase(readyQueue.front().instrList.begin());
             }
         }
+
         //unblocks the disk if the busyUntil time has been reached
         if((CLOCK >= Disk.busyUntil) && (Disk.status == "RUNNING")){ 
             if (diskQueue.size() == 0){
@@ -284,18 +286,20 @@ int main(){
         }
 
         // blocks readyQueue if the top instruction is DISPLAY or INPUT
-        if ((readyQueue.front().instrList.front().name == ("DISPLAY") || ("INPUT"))){
+        if ((readyQueue.front().instrList.front().name == "DISPLAY") ||
+                (readyQueue.front().instrList.front().name == "INPUT")){
             if(Display.status == "IDLE"){
                 setDisplayBusy(readyQueue.front().instrList.front());
-                cout<<"setting display busy until "<<Display.busyUntil<<" CLOCK = "<<CLOCK<<endl;
+                cout<<"NEXT IS "<<readyQueue.front().instrList.front().name;
+            cout<<readyQueue.front().retPID();
+            cout<<" with duration :"<<readyQueue.front().instrList.front().duration;
+            cout<<" it will complete at "<<CLOCK+readyQueue.front().instrList.front().duration<<endl;
+
                 //readyQueue.front().instrList.erase(processList.front().instrList.begin());
             }
         }
 
-        cout<<"RQ SIZE: "<<readyQueue.size();
-        cout<<"TOP IS: "<<readyQueue.front().instrList.front().name<<endl;
-        cout<<"PL SIZE: "<<processList.size()<<endl;
-        cout<<"DQ SIZE: "<<diskQueue.size()<<endl; 
+        
 
     }
     cout<<"complete!!!"; 
@@ -312,6 +316,7 @@ void loadCPU(){
         	cpu.checkFreeCore();
             //if the duration is <= SLICE
             cout<<"NEXT IS "<<readyQueue.front().instrList.front().name;
+            cout<<readyQueue.front().retPID();
             cout<<" with duration :"<<readyQueue.front().instrList.front().duration;
             
             if(readyQueue.front().instrList.front().duration <= SLICE){
@@ -320,7 +325,7 @@ void loadCPU(){
                         readyQueue);
                 readyQueue.front().instrList.front().duration = 0;
 
-                cout<<"instruction "<<readyQueue.front().instrList.front().name<<readyQueue.front().instrList.front().processID<<" has been completed CLOCK = "<<CLOCK<<endl; 
+                cout<<"instruction "<<readyQueue.front().instrList.front().name<<readyQueue.front().retPID()<<" has been completed CLOCK = "<<CLOCK<<endl; 
                 //pop instruction from readyQueue
                 readyQueue.front().instrList.erase(readyQueue.front().instrList.begin());
                 checkEmpty(readyQueue);
@@ -335,8 +340,16 @@ void loadCPU(){
             }
             //exits if next instruction in the list isnt CORE request
             if(readyQueue.front().instrList.front().name != "CORE"){
-            	//advanceClock(minTime);
-                break;
+                if(readyQueue.size() > 1){
+                    if(readyQueue.begin()[1].instrList.front().name == "CORE"){
+                        //if the second process in the readyQueue is
+                        //core request send the top process to end of Q
+                        readyQueue.push_back(readyQueue.front());
+                        readyQueue.erase(readyQueue.begin());
+                    }
+                    else break;
+                }
+                else break;
             }
         }
     }
