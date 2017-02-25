@@ -18,7 +18,7 @@ int SLICE = 0;
 struct disk{
     string status = "IDLE";
     int currentProcessID = -1;
-    int busyUntil = 0;
+    int busyUntil = 999999999;
 }Disk;
 
 //CPU is a vector of cores?
@@ -26,13 +26,13 @@ struct core{
     int coreID = -1;
     bool active = false;
     int currentProcessID = -1;
-    int busyUntil = 0;
+    int busyUntil = 999999999;
 };
 
 struct display{
     string status = "IDLE";
     int  currentProcessID = -1;
-    int busyUntil = 0;
+    int busyUntil = 999999999;
 }Display;
 
 struct instruction{
@@ -78,9 +78,11 @@ class Process{
 class CPU{
     protected:
         vector<core> cores;
+    public:
+    
         int numCores = 0;
         int numBusyCores = 0;
-    public:
+
         CPU(){
         }
 
@@ -98,7 +100,8 @@ class CPU{
 
         ~CPU(){
         }
-
+        
+        int retMinBusyUntil();
         void freeCore(int);
         void setBusyUntil(int, vector<Process> &tempProcess);
         core requestCore();
@@ -118,6 +121,9 @@ void queueLoader();
 void loadCPU();
 void parseDiskRequest();
 void parseDisplayRequest();
+void diskUnblockCheck();
+void displayUnblockCheck();
+void displayOrDiskCheck();
 
 vector<Process> processList;
 vector<Process> readyQueue;
@@ -162,39 +168,18 @@ int main(){
 
     while((processList.size() > 0) || (readyQueue.size() > 0) || (diskQueue.size() > 0)){
 
-		
+		//loads processes into readyQueue based on their arrival time
         queueLoader();
         
         //unblocks a process if the busyUntil time has been reached
-        if((CLOCK < Display.busyUntil) && (Display.status == "RUNNING")){
+        displayUnblockCheck();   
 
-             if ((readyQueue.front().instrList.front().name == "DISPLAY") ||
-                (readyQueue.front().instrList.front().name == "INPUT")){
-                if(readyQueue.size() == 1){
-                    CLOCK = Display.busyUntil;
-                }
-                cout<<"DISPLAY removed from readyQueue1"<<endl;
-                freeDisplay();
-                readyQueue.front().instrList.erase(readyQueue.front().instrList.begin());
-            }
-        }
-        
         checkEmpty(processList);
         checkEmpty(readyQueue);
 
-        if((CLOCK >= Disk.busyUntil) && (Disk.status == "RUNNING")){
-            cout<<"DISK IS NOW FREE CLOCK = "<<CLOCK<<endl;
-            if (diskQueue.size() == 0){
-                freeDisk();
-            }
-            else{
-                freeDisk();
-                setDiskBusy(diskQueue.front());
-                cout<<"setting disk busy until:"<<Disk.busyUntil<<"CLOCK = "<<CLOCK<<endl;
-                diskQueue.erase(diskQueue.begin());
-            }
-        }
-        
+        //unblocks disk 
+        diskUnblockCheck();
+
         checkEmpty(processList);
         checkEmpty(readyQueue);
 
@@ -215,37 +200,13 @@ int main(){
 
         checkEmpty(processList);
         checkEmpty(readyQueue);
-        //unblocks a process if the busyUntil time has been reached
-        
-        if((CLOCK < Display.busyUntil) && (Display.status == "RUNNING")){
-
-             if ((readyQueue.front().instrList.front().name == "DISPLAY") ||
-                (readyQueue.front().instrList.front().name == "INPUT")){
-                if(readyQueue.size() == 1){ 
-                    CLOCK = Display.busyUntil;
-                }
-                cout<<"DISPLAY removed from readyQueue2"<<endl;
-                freeDisplay();
-                readyQueue.front().instrList.erase(readyQueue.front().instrList.begin());
-            }
-        }
-
+        //unblocks a process if the display busyUntil time has been reached
+        displayUnblockCheck();
         //unblocks the disk if the busyUntil time has been reached
-        if((CLOCK >= Disk.busyUntil) && (Disk.status == "RUNNING")){ 
-            if (diskQueue.size() == 0){
-                freeDisk();
-            }
-            else{
-                freeDisk();
-                setDiskBusy(diskQueue.front());
-                cout<<"freeing DISK CLOCK = "<<CLOCK<<endl;
-                diskQueue.erase(diskQueue.begin());
-            }
-        }
-        
+        diskUnblockCheck();
+        //processes disk requests
         parseDiskRequest();
-
-        // blocks readyQueue if the top instruction is DISPLAY or INPUT
+        //blocks readyQueue if the top instruction is DISPLAY or INPUT
         parseDisplayRequest(); 
 
         
@@ -305,15 +266,123 @@ void loadCPU(){
                     (readyQueue.front().instrList.front().duration
                         < lastDuration)){
                     if(readyQueue.front().instrList.front().name == "DISK"){
+                        diskUnblockCheck();
                         parseDiskRequest();
+                        cout<<"DISK REQUEST from process";
+                        cout<<readyQueue.front().retPID()<<" for ";
+                        cout<<readyQueue.front().instrList.front().duration<<endl;
+                        cout<<"SKIPPING AHEAD CLOCK = "<<CLOCK;
+                        cout<<" -> "<<Disk.busyUntil<<endl;
+                        CLOCK = Disk.busyUntil;
+                        diskUnblockCheck();
                     }
                     else if(readyQueue.front().instrList.front().name == "DISPLAY" ||
                             readyQueue.front().instrList.front().name == "INPUT"){
+                        displayUnblockCheck();
                         parseDisplayRequest();
+                        cout<<"???DISPLAY REQUEST???";
+                        cout<<readyQueue.front().retPID()<<" for ";
+                        cout<<readyQueue.front().instrList.front().duration<<endl;
+                        cout<<"SKIPPING AHEAD CLOCK = "<<CLOCK;
+                        cout<<" -> "<<Display.busyUntil<<endl;
+                        CLOCK = Display.busyUntil;
+                        displayUnblockCheck();
                     }
                 }
                 else break;
             }
+        }
+    }
+}
+
+void displayOrDiskCheck(){
+
+    int minTime = 0;
+
+    //find the smallest core busyUntil time
+    minTime = cpu.retMinBusyUntil();
+    //if the disk busyuntil time is less than the earliest
+    //core busyuntil time,free the disk, set to clock to the disk
+    //busyUntil time, then check if any processes have
+    //arrived and if any cores have been freed up
+    if((Disk.busyUntil<Display.busyUntil)){
+        if((Disk.busyUntil < minTime) && (Disk.status == "RUNNING")){
+            CLOCK = Disk.busyUntil;
+            diskUnblockCheck();
+            displayUnblockCheck(); 
+            queueLoader();
+            cpu.checkFreeCore();
+        }
+        if((Display.busyUntil < minTime) && (Display.status == "RUNNING")){ 
+            CLOCK = Display.busyUntil;
+            displayUnblockCheck();
+            diskUnblockCheck();
+            queueLoader();
+            cpu.checkFreeCore();
+        }
+    }
+    else{
+        if((Display.busyUntil < minTime) && (Display.status == "RUNNING")){
+            CLOCK = Display.busyUntil;
+            displayUnblockCheck();
+            diskUnblockCheck();
+            queueLoader();
+            cpu.checkFreeCore();
+        }
+        if((Disk.busyUntil < minTime) && (Disk.status == "RUNNING")){
+            CLOCK = Disk.busyUntil;
+            diskUnblockCheck(); 
+            displayUnblockCheck();
+            queueLoader();
+            cpu.checkFreeCore();
+        }
+
+    }
+    CLOCK = minTime;
+
+}
+
+void displayUnblockCheck(){
+    if((CLOCK < Display.busyUntil) && (Display.status == "RUNNING")){
+
+         if ((readyQueue.front().instrList.front().name == "DISPLAY") ||
+            (readyQueue.front().instrList.front().name == "INPUT")){
+            if(readyQueue.size() == 1){ 
+                CLOCK = Display.busyUntil;
+            }
+            cout<<"DISPLAY removed from readyQueue2"<<endl;
+            freeDisplay();
+            readyQueue.front().instrList.erase(readyQueue.front().instrList.begin());
+        }
+    }
+    else if((CLOCK >= Display.busyUntil) && (Display.status == "RUNNING")){
+        //find the process that was blocked by the display and remove
+        //DISPLAY from the front of the readyQueue
+        for(int i = 0; i < readyQueue.size(); i++){
+            if((readyQueue.begin()[i].instrList.front().name == "DISPLAY") ||
+                (readyQueue.begin()[i].instrList.front().name == "INPUT")){
+                if(Display.currentProcessID == readyQueue.begin()[i].instrList.front().processID){
+                    readyQueue.begin()[i].instrList.erase(readyQueue.begin()[i].instrList.begin());
+                    freeDisplay();
+                    break;
+                }
+            }
+        }
+    }
+
+}
+
+void diskUnblockCheck(){
+    if((CLOCK >= Disk.busyUntil) && (Disk.status == "RUNNING")){ 
+        if (diskQueue.size() == 0){
+            freeDisk();
+            cout<<"freeing DISK CLOCK = "<<CLOCK<<endl;
+        }
+        else{
+            freeDisk();
+            setDiskBusy(diskQueue.front());
+            cout<<"freeing DISK CLOCK = "<<CLOCK<<endl;
+            diskQueue.erase(diskQueue.begin());
         }
     }
 }
@@ -325,7 +394,6 @@ void parseDiskRequest(){
            setDiskBusy(readyQueue.front().instrList.front()); 
            cout<<"setting disk busy until2:"<<(Disk.busyUntil)<<endl;
            readyQueue.front().instrList.front().duration = 0;
-           //readyQueue pushback into readyQueue goes here?
            readyQueue.front().instrList.erase(readyQueue.front().instrList.begin());
            checkEmpty(readyQueue);
         }
@@ -335,7 +403,6 @@ void parseDiskRequest(){
             diskQueue.push_back(readyQueue.front().instrList.front());
             readyQueue.front().instrList.erase(readyQueue.front().instrList.begin());
             checkEmpty(readyQueue);
-            cout<<"the disk2 is currently busy, adding instruction to the disk queue from the readyQueue CLOCK = "<<CLOCK<<endl;
         }
     }
 
@@ -347,13 +414,8 @@ void parseDiskRequest(){
             diskQueue.front().duration = 0;
             diskQueue.erase(diskQueue.begin());
         }
-        //if the disk is currently busy, add the instruction to the
-        //diskQueue
-        else{
-            //diskQueue.push_back(diskQueue.front());
-            //diskQueue.erase(diskQueue.begin());
-            cout<<"the disk3 is currently busy, adding instruction to the disk queue from the diskQueue CLOCK = "<<CLOCK<<endl;
-        }
+        //if the disk is currently busy leave it at the front of the
+        //queue
     }
 
 }
@@ -367,8 +429,6 @@ void parseDisplayRequest(){
         cout<<readyQueue.front().retPID();
         cout<<" with duration :"<<readyQueue.front().instrList.front().duration;
         cout<<" it will complete at "<<CLOCK+readyQueue.front().instrList.front().duration<<endl;
-
-            //readyQueue.front().instrList.erase(processList.front().instrList.begin());
         }
     }
 }
@@ -408,13 +468,13 @@ void setDiskBusy(instruction tempInstruction){
 void freeDisk(){
     Disk.status = "IDLE";
     Disk.currentProcessID = -1;
-    Disk.busyUntil = 0;
+    Disk.busyUntil = 999999999;
 }
 
 void freeDisplay(){
     Display.status = "IDLE";
     Display.currentProcessID = -1;
-    Display.busyUntil = 0;
+    Display.busyUntil = 999999999;
 }
 
 int Process::retSize(){
@@ -449,6 +509,18 @@ void Process::killProcess(){
     this->status = "TERMINATED";
 }
 
+int CPU::retMinBusyUntil(){
+    int minTime = 999999999;
+    for(int i = 0; i < this->numCores; i++){
+        if(this->cores[i].active){
+            if(this->cores[i].busyUntil < minTime){
+                minTime = this->cores[i].busyUntil;
+            }
+        }
+    }
+    return minTime;
+}
+
 int CPU::retFreeCoreID(){
     return this->requestCore().coreID;
 }
@@ -464,7 +536,7 @@ void CPU::checkFreeCore(){
 void CPU::freeCore(int coreID){
     this->numBusyCores--;
     this->cores[coreID].currentProcessID = -1;
-    this->cores[coreID].busyUntil = 0;
+    this->cores[coreID].busyUntil = 999999999;
     this->cores[coreID].active = false;
 }
 
@@ -478,6 +550,7 @@ void CPU::setBusyUntil(int reqTime, vector<Process> &tempProcess){
     this->cores[coreID].active = true;
     tempProcess.front().instrList.front().currentLocation = coreID;
     CLOCK += reqTime;
+    displayOrDiskCheck();
     queueLoader();
     cpu.checkFreeCore();
     
