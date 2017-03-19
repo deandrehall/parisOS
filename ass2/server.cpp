@@ -121,7 +121,8 @@ int main(){
 
         inputName = readBuffer;
         //Program exits if input is "Terminate."
-        if(inputName == "Terminate."){  
+        if(inputName == "Terminate."){ 
+            cout<<"Terminating..."
             close(sock);
             close(tempSock);
             return 0;
