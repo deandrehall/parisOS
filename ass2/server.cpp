@@ -61,7 +61,7 @@ int main(){
     string key = "";
 
     unsigned short portNumber = 0;
-    int sock, tempSock;
+    int sock, tempSock, dummySocket;
     struct sockaddr_in socketAddress;
     struct hostent *hp;
     const int MAXHOSTNAMESIZE = 18;
@@ -117,19 +117,19 @@ int main(){
         }
 
         bzero(readBuffer, 256);
-        auto reading = (tempSock, readBuffer, 255); //accepting input
+        dummySocket = read(tempSock, readBuffer, 255); //accepting input
 
         inputName = readBuffer;
         //Program exits if input is "Terminate."
         if(inputName == "Terminate."){ 
-            cout<<"Terminating..."
+            cout<<"Terminating...";
             close(sock);
             close(tempSock);
             return 0;
         }
 
         retrivedKey = students.findUser(inputName);
-        reading = write(tempSock, retrivedKey.c_str(), retrivedKey.length());
+        dummySocket = write(tempSock, retrivedKey.c_str(), retrivedKey.length());
 
         inputName = "";
 
