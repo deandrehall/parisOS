@@ -56,14 +56,8 @@ void *leaveBridge(vehicle obj){
     if(obj.weight > MAXBRIDGEWEIGHT){
         pthread_exit((void*) NULL);
     }
-    //cout<<obj.vehicleID<<" is waiting to leave the bridge"<<endl;
 
     pthread_mutex_lock(&lock);
-    /*
-    while(CLOCK < (obj.arrivalTime + obj.timeToCross)){
-        pthread_cond_wait(&condClock, &lock);
-    }
-    */
     cout<<"Vehicle "<<obj.vehicleID<<" leaves the bridge."<<endl;
     CURRENTBRIDGEWEIGHT-=obj.weight;
     pthread_cond_signal(&condWeight);
@@ -81,11 +75,8 @@ void *enterBridge(void *arg){
         pthread_exit((void*) NULL);
     }
 
-    usleep(obj->timeSinceLastVehicle);
-
-    obj->arrivalTime = CLOCK;
-    //cout<<"Current time is "<<CLOCK<<endl;
     cout<<"Vehicle "<<obj->vehicleID<<" arrives at bridge."<<endl;
+    usleep(obj->timeSinceLastVehicle);
 
     pthread_mutex_lock(&lock);
     cout<<"The current bridge load is "<<CURRENTBRIDGEWEIGHT<<" tons."<<endl;
